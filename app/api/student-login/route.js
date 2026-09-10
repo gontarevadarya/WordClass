@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { getJSON } from '@/lib/store';
 import { createStudentToken } from '@/lib/session';
 import { STUDENT_COOKIE } from '@/lib/auth';
+import { withErrorHandling } from '@/lib/api';
 
-export async function POST(req) {
+export const POST = withErrorHandling(async (req) => {
   const body = await req.json().catch(() => ({}));
   const pin = (body.pin || '').trim();
   if (!pin) {
@@ -24,4 +25,4 @@ export async function POST(req) {
     maxAge: 60 * 60 * 24 * 30,
   });
   return res;
-}
+});

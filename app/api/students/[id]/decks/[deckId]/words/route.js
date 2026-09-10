@@ -2,16 +2,17 @@ import { NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
 import { getJSON, setJSON } from '@/lib/store';
 import { isTeacherRequest, canAccessStudent } from '@/lib/auth';
+import { withErrorHandling } from '@/lib/api';
 
-export async function GET(req, { params }) {
+export const GET = withErrorHandling(async (req, { params }) => {
   if (!canAccessStudent(params.id)) {
     return NextResponse.json({ error: 'Нет доступа.' }, { status: 403 });
   }
   const words = await getJSON(`words:${params.id}:${params.deckId}`, []);
   return NextResponse.json({ words });
-}
+});
 
-export async function POST(req, { params }) {
+export const POST = withErrorHandling(async (req, { params }) => {
   if (!isTeacherRequest()) {
     return NextResponse.json({ error: 'Только учитель может добавлять слова.' }, { status: 403 });
   }
@@ -25,4 +26,4 @@ export async function POST(req, { params }) {
   words.push(word);
   await setJSON(`words:${params.id}:${params.deckId}`, words);
   return NextResponse.json({ word });
-}
+});

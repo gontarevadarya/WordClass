@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getJSON, setJSON, deleteKey } from '@/lib/store';
 import { isTeacherRequest } from '@/lib/auth';
+import { withErrorHandling } from '@/lib/api';
 
-export async function DELETE(req, { params }) {
+export const DELETE = withErrorHandling(async (req, { params }) => {
   if (!isTeacherRequest()) {
     return NextResponse.json({ error: 'Только учитель может удалять папки со словами.' }, { status: 403 });
   }
@@ -11,4 +12,4 @@ export async function DELETE(req, { params }) {
   await deleteKey(`words:${params.id}:${params.deckId}`);
   await deleteKey(`results:${params.id}:${params.deckId}`);
   return NextResponse.json({ ok: true });
-}
+});

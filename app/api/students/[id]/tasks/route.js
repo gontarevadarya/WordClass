@@ -2,16 +2,17 @@ import { NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
 import { getJSON, setJSON } from '@/lib/store';
 import { isThisStudent, canAccessStudent } from '@/lib/auth';
+import { withErrorHandling } from '@/lib/api';
 
-export async function GET(req, { params }) {
+export const GET = withErrorHandling(async (req, { params }) => {
   if (!canAccessStudent(params.id)) {
     return NextResponse.json({ error: 'Нет доступа.' }, { status: 403 });
   }
   const folders = await getJSON('tasks:' + params.id, []);
   return NextResponse.json({ folders });
-}
+});
 
-export async function POST(req, { params }) {
+export const POST = withErrorHandling(async (req, { params }) => {
   if (!isThisStudent(params.id)) {
     return NextResponse.json({ error: 'Создавать папки с заданиями может только сам ученик.' }, { status: 403 });
   }
@@ -22,4 +23,4 @@ export async function POST(req, { params }) {
   folders.push(folder);
   await setJSON('tasks:' + params.id, folders);
   return NextResponse.json({ folder });
-}
+});

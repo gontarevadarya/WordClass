@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { getJSON, setJSON } from '@/lib/store';
 import { isTeacherRequest } from '@/lib/auth';
 import { generateUniquePin } from '@/lib/students';
+import { withErrorHandling } from '@/lib/api';
 
-export async function POST(req, { params }) {
+export const POST = withErrorHandling(async (req, { params }) => {
   if (!isTeacherRequest()) {
     return NextResponse.json({ error: 'Только учитель может менять PIN.' }, { status: 403 });
   }
@@ -13,4 +14,4 @@ export async function POST(req, { params }) {
   student.pin = await generateUniquePin();
   await setJSON('students', students);
   return NextResponse.json({ student });
-}
+});

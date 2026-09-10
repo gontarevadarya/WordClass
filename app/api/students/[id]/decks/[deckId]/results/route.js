@@ -2,16 +2,17 @@ import { NextResponse } from 'next/server';
 import { nanoid } from 'nanoid';
 import { getJSON, setJSON } from '@/lib/store';
 import { isTeacherRequest, isThisStudent, canAccessStudent } from '@/lib/auth';
+import { withErrorHandling } from '@/lib/api';
 
-export async function GET(req, { params }) {
+export const GET = withErrorHandling(async (req, { params }) => {
   if (!canAccessStudent(params.id)) {
     return NextResponse.json({ error: 'Нет доступа.' }, { status: 403 });
   }
   const results = await getJSON(`results:${params.id}:${params.deckId}`, []);
   return NextResponse.json({ results });
-}
+});
 
-export async function POST(req, { params }) {
+export const POST = withErrorHandling(async (req, { params }) => {
   if (!isThisStudent(params.id)) {
     return NextResponse.json({ error: 'Публиковать результат может только сам ученик.' }, { status: 403 });
   }
@@ -22,12 +23,12 @@ export async function POST(req, { params }) {
   results.push({ id: nanoid(10), correct, mistakes, date: Date.now() });
   await setJSON(`results:${params.id}:${params.deckId}`, results);
   return NextResponse.json({ ok: true });
-}
+});
 
-export async function DELETE(req, { params }) {
+export const DELETE = withErrorHandling(async (req, { params }) => {
   if (!isTeacherRequest()) {
     return NextResponse.json({ error: 'Только учитель может очищать результаты.' }, { status: 403 });
   }
   await setJSON(`results:${params.id}:${params.deckId}`, []);
   return NextResponse.json({ ok: true });
-}
+});
