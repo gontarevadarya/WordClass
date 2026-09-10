@@ -95,14 +95,23 @@ export default function StudentExercisePage() {
   async function publish() {
     if (!studentId) return;
     setPublishError('');
-    const res = await fetch(`/api/students/${studentId}/decks/${deckId}/results`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ correct: pairs.length, mistakes: wrongCount }),
-    });
-    const data = await res.json();
-    if (!res.ok) return setPublishError(data.error || 'Не удалось опубликовать результат.');
-    setPublished(true);
+    try {
+      const res = await fetch(`/api/students/${studentId}/decks/${deckId}/results`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correct: pairs.length, mistakes: wrongCount }),
+      });
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Сервер ответил неожиданно (код ${res.status}). Проверьте подключение базы данных.`);
+      }
+      if (!res.ok) return setPublishError(data.error || 'Не удалось опубликовать результат.');
+      setPublished(true);
+    } catch (err) {
+      setPublishError(err.message || 'Ошибка сети.');
+    }
   }
 
   if (allWords.length > 0 && allWords.length < 3) {

@@ -181,22 +181,32 @@ export default function StudentDeckEditorPage() {
     if (!en.trim() || !ru.trim()) return setFormError('Заполните слово и перевод.');
     setFormError('');
     setSaving(true);
-    const res = await fetch(`/api/students/${id}/decks/${deckId}/words`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ en: en.trim(), ru: ru.trim(), image: selectedImage, audio: audioBase64 }),
-    });
-    const data = await res.json();
-    setSaving(false);
-    if (!res.ok) return setFormError(data.error || 'Не удалось сохранить слово.');
-    setEn('');
-    setRu('');
-    setSelectedImage(null);
-    setImageResults([]);
-    setImageStatus('');
-    setAudioBase64(null);
-    setAudioStatus('запись не сделана');
-    load();
+    try {
+      const res = await fetch(`/api/students/${id}/decks/${deckId}/words`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ en: en.trim(), ru: ru.trim(), image: selectedImage, audio: audioBase64 }),
+      });
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Сервер ответил неожиданно (код ${res.status}). Проверьте подключение базы данных (Upstash Redis).`);
+      }
+      if (!res.ok) return setFormError(data.error || 'Не удалось сохранить слово.');
+      setEn('');
+      setRu('');
+      setSelectedImage(null);
+      setImageResults([]);
+      setImageStatus('');
+      setAudioBase64(null);
+      setAudioStatus('запись не сделана');
+      await load();
+    } catch (err) {
+      setFormError(err.message || 'Ошибка сети.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function deleteWord(wordId) {

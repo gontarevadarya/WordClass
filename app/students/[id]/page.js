@@ -51,16 +51,26 @@ export default function StudentDecksPage() {
     if (!trimmed) return setError('Введите название папки.');
     setCreating(true);
     setError('');
-    const res = await fetch(`/api/students/${id}/decks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: trimmed }),
-    });
-    const data = await res.json();
-    setCreating(false);
-    if (!res.ok) return setError(data.error || 'Не удалось создать папку.');
-    setName('');
-    load();
+    try {
+      const res = await fetch(`/api/students/${id}/decks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Сервер ответил неожиданно (код ${res.status}). Проверьте подключение базы данных (Upstash Redis).`);
+      }
+      if (!res.ok) return setError(data.error || 'Не удалось создать папку.');
+      setName('');
+      await load();
+    } catch (err) {
+      setError(err.message || 'Ошибка сети.');
+    } finally {
+      setCreating(false);
+    }
   }
 
   async function deleteDeck(deckId) {

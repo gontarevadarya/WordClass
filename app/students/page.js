@@ -30,19 +30,29 @@ export default function StudentsPage() {
     }
     setCreating(true);
     setError('');
-    const res = await fetch('/api/students', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: trimmed }),
-    });
-    const data = await res.json();
-    setCreating(false);
-    if (!res.ok) {
-      setError(data.error || 'Не удалось добавить ученика.');
-      return;
+    try {
+      const res = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Сервер ответил неожиданно (код ${res.status}). Проверьте, что база данных (Upstash Redis) подключена и переменные окружения верны.`);
+      }
+      if (!res.ok) {
+        setError(data.error || 'Не удалось добавить ученика.');
+        return;
+      }
+      setName('');
+      await load();
+    } catch (err) {
+      setError(err.message || 'Ошибка сети.');
+    } finally {
+      setCreating(false);
     }
-    setName('');
-    load();
   }
 
   async function removeStudent(id) {
