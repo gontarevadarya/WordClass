@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getJSON, setJSON } from '@/lib/store';
-import { isThisStudent } from '@/lib/auth';
+import { isThisStudent, isTeacherRequest } from '@/lib/auth';
 import { withErrorHandling } from '@/lib/api';
 
 export const PATCH = withErrorHandling(async (req, { params }) => {
@@ -19,8 +19,8 @@ export const PATCH = withErrorHandling(async (req, { params }) => {
 });
 
 export const DELETE = withErrorHandling(async (req, { params }) => {
-  if (!isThisStudent(params.id)) {
-    return NextResponse.json({ error: 'Удалять может только сам ученик.' }, { status: 403 });
+  if (!isThisStudent(params.id) && !isTeacherRequest()) {
+    return NextResponse.json({ error: 'Нет доступа.' }, { status: 403 });
   }
   const folders = (await getJSON('tasks:' + params.id, [])).filter((f) => f.id !== params.folderId);
   await setJSON('tasks:' + params.id, folders);

@@ -17,7 +17,7 @@ export default function HomePage() {
     <div className="app-shell">
       <header className="top">
         <div>
-          <h1>СловоКласс</h1>
+          <h1>WordClass</h1>
           <div className="tag">папки с английскими словами · открытый доступ по ссылке</div>
         </div>
         <TeacherToggle onStatus={setIsTeacher} />

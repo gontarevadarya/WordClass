@@ -98,6 +98,12 @@ export default function StudentDecksPage() {
         <TeacherToggle onStatus={setIsTeacher} />
       </header>
 
+      <div className="exercise-cta" style={{ marginTop: 0 }}>
+        <a className="btn secondary small" href={`/students/${id}/tasks`}>
+          Задания этого ученика →
+        </a>
+      </div>
+
       <form className="new-deck-form" onSubmit={createDeck}>
         <input placeholder="Название папки, например «Еда»" value={name} onChange={(e) => setName(e.target.value)} />
         <button className="btn" type="submit" disabled={creating}>

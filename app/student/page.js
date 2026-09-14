@@ -85,7 +85,7 @@ export default function StudentDashboard() {
       <header className="top">
         <div>
           <h1>Привет, {student.name}!</h1>
-          <div className="tag">твоё личное пространство в СловоКлассе</div>
+          <div className="tag">твоё личное пространство в WordClass</div>
         </div>
         <StudentBadge />
       </header>
@@ -143,7 +143,9 @@ export default function StudentDashboard() {
       <div className="deck-grid">
         {folders.map((f) => (
           <div className="deck-card" key={f.id}>
-            <h3>{f.name}</h3>
+            <h3>
+              {f.name} {f.fromTeacher && <span className="teacher-badge" style={{ marginLeft: 6 }}>от учителя</span>}
+            </h3>
             <div className="count">{f.content ? `${f.content.length} симв.` : 'пусто'}</div>
             <div className="actions">
               <a className="btn small" href={`/student/tasks/${f.id}`}>

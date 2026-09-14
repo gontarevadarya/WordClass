@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'СловоКласс',
+  title: 'WordClass',
   description: 'Папки с английскими словами для занятий в классе',
 };
 

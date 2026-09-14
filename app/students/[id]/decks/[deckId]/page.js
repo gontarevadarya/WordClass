@@ -311,7 +311,7 @@ export default function StudentDeckEditorPage() {
             {w.image ? (
               <img className="thumb" src={w.image.thumb} alt="" />
             ) : (
-              <div className="thumb" style={{ width: 44, height: 44, background: 'var(--line)', borderRadius: 8 }} />
+              <div className="thumb" style={{ width: 64, height: 64, background: 'var(--line)', borderRadius: 10 }} />
             )}
             <div className="txt">
               <div className="en">{w.en}</div>
