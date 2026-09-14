@@ -150,7 +150,7 @@ export default function StudentDeckEditorPage() {
         const mr = new MediaRecorder(stream);
         mr.ondataavailable = (e) => chunksRef.current.push(e.data);
         mr.onstop = async () => {
-          const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+          const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
           const b64 = await blobToBase64(blob);
           setAudioBase64(b64);
           setAudioStatus('запись готова ✓');
