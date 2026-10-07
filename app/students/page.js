@@ -9,6 +9,9 @@ export default function StudentsPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [copiedId, setCopiedId] = useState('');
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [renameError, setRenameError] = useState('');
 
   const load = useCallback(async () => {
     const res = await fetch('/api/students');
@@ -52,6 +55,30 @@ export default function StudentsPage() {
       setError(err.message || 'Ошибка сети.');
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function saveRename(id) {
+    const newName = renameDraft.trim();
+    if (!newName) return setRenameError('Имя не может быть пустым.');
+    setRenameError('');
+    try {
+      const res = await fetch(`/api/students/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      });
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Сервер ответил неожиданно (код ${res.status}).`);
+      }
+      if (!res.ok) return setRenameError(data.error || 'Не удалось изменить имя.');
+      setRenamingId(null);
+      await load();
+    } catch (e) {
+      setRenameError(e.message);
     }
   }
 
@@ -106,7 +133,26 @@ export default function StudentsPage() {
         {students.map((s) => (
           <div className="word-row" key={s.id}>
             <div className="txt">
-              <div className="en">{s.name}</div>
+              {renamingId === s.id ? (
+                <div>
+                  <input
+                    value={renameDraft}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && saveRename(s.id)}
+                    autoFocus
+                    style={{ padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--line)' }}
+                  />{' '}
+                  <button className="btn small" onClick={() => saveRename(s.id)}>
+                    Сохранить
+                  </button>{' '}
+                  <button className="btn small secondary" onClick={() => setRenamingId(null)}>
+                    Отмена
+                  </button>
+                  {renameError && <div className="error-note">{renameError}</div>}
+                </div>
+              ) : (
+                <div className="en">{s.name}</div>
+              )}
               <div className="ru">
                 PIN: <strong>{s.pin}</strong>
               </div>
@@ -118,6 +164,16 @@ export default function StudentsPage() {
               <a className="btn small secondary" href={`/students/${s.id}`}>
                 Папки со словами
               </a>
+              <button
+                className="icon-btn"
+                onClick={() => {
+                  setRenamingId(s.id);
+                  setRenameDraft(s.name);
+                  setRenameError('');
+                }}
+              >
+                ✎ Имя
+              </button>
               <button className="icon-btn" onClick={() => regeneratePin(s.id)}>
                 Новый PIN
               </button>
@@ -127,6 +183,12 @@ export default function StudentsPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="exercise-cta">
+        <a className="btn secondary small" href="/backup">
+          Резервная копия и перенос данных
+        </a>
       </div>
 
       <div className="note" style={{ marginTop: 20 }}>

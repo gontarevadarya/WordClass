@@ -1,47 +1,26 @@
 'use client';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import TeacherToggle from '../../../../components/TeacherToggle';
+import WordForm from '../../../../components/WordForm';
 
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-function blobToBase64(blob) {
-  return new Promise((resolve) => {
-    const r = new FileReader();
-    r.onloadend = () => resolve(r.result);
-    r.readAsDataURL(blob);
-  });
+async function readJson(res) {
+  try {
+    return await res.json();
+  } catch {
+    throw new Error(`Сервер ответил неожиданно (код ${res.status}). Проверьте подключение базы данных.`);
+  }
 }
 
 export default function StudentDeckEditorPage() {
   const { id, deckId } = useParams();
   const [isTeacher, setIsTeacher] = useState(null);
   const [deckName, setDeckName] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [renameError, setRenameError] = useState('');
   const [words, setWords] = useState([]);
-
-  const [en, setEn] = useState('');
-  const [ru, setRu] = useState('');
-  const [manualQuery, setManualQuery] = useState('');
-  const [imageResults, setImageResults] = useState([]);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [imageStatus, setImageStatus] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [translating, setTranslating] = useState(false);
-  const [audioBase64, setAudioBase64] = useState(null);
-  const [audioStatus, setAudioStatus] = useState('запись не сделана');
-  const [recording, setRecording] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState('');
-
-  const mediaRecorderRef = useRef(null);
-  const chunksRef = useRef([]);
-  const fileInputRef = useRef(null);
+  const [editingId, setEditingId] = useState(null);
 
   const load = useCallback(async () => {
     const [dRes, wRes] = await Promise.all([
@@ -68,148 +47,52 @@ export default function StudentDeckEditorPage() {
     );
   }
 
-  async function runImageSearch(query) {
-    setSearching(true);
-    setImageStatus('Ищу картинки…');
+  async function saveDeckName() {
+    const name = nameDraft.trim();
+    if (!name) return setRenameError('Название не может быть пустым.');
+    setRenameError('');
     try {
-      const res = await fetch(`/api/unsplash?q=${encodeURIComponent(query)}`);
-      const data = await res.json();
-      if (!res.ok) {
-        setImageStatus(data.error || 'Не получилось получить картинки.');
-        setImageResults([]);
-      } else if ((data.results || []).length === 0) {
-        setImageStatus('Ничего не найдено, попробуйте другой запрос.');
-        setImageResults([]);
-      } else {
-        setImageStatus(`Найдено по запросу «${query}» — нажмите на картинку, чтобы выбрать:`);
-        setImageResults(data.results);
-      }
-    } catch (err) {
-      setImageStatus('Ошибка сети: ' + err.message);
-    }
-    setSearching(false);
-  }
-
-  async function aiSearch() {
-    if (!en.trim()) return setFormError('Сначала введите английское слово.');
-    setFormError('');
-    setSearching(true);
-    setImageStatus('Анализирую слово…');
-    try {
-      const res = await fetch('/api/claude', {
-        method: 'POST',
+      const res = await fetch(`/api/students/${id}/decks/${deckId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `Предложи короткий поисковый запрос на английском (2-4 слова) для Unsplash, который найдёт фотографию, ясно иллюстрирующую слово "${en.trim()}" в карточке для изучающих английский язык. Ответь только запросом, без кавычек и пояснений.`,
-        }),
+        body: JSON.stringify({ name }),
       });
-      const data = await res.json();
-      const query = res.ok && data.text ? data.text.replace(/["']/g, '').trim() : en.trim();
-      if (!res.ok) setImageStatus(data.error + ' Ищу по самому слову.');
-      await runImageSearch(query);
-    } catch (err) {
-      await runImageSearch(en.trim());
+      const data = await readJson(res);
+      if (!res.ok) return setRenameError(data.error || 'Не удалось переименовать.');
+      setDeckName(name);
+      setRenaming(false);
+    } catch (e) {
+      setRenameError(e.message);
     }
   }
 
-  async function translate() {
-    if (!en.trim()) return setFormError('Сначала введите английское слово.');
-    setFormError('');
-    setTranslating(true);
-    try {
-      const res = await fetch('/api/claude', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `Переведи английское слово "${en.trim()}" на русский язык. Ответь только переводом (1-2 слова), без кавычек и пояснений.`,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.text) setRu(data.text.replace(/["'.]/g, '').trim());
-      else setFormError(data.error || 'Не удалось перевести автоматически.');
-    } catch (err) {
-      setFormError('Ошибка сети: ' + err.message);
-    }
-    setTranslating(false);
-  }
-
-  function pickImage(img) {
-    setSelectedImage(img);
-    fetch('/api/unsplash', {
+  async function addWord(changes) {
+    const res = await fetch(`/api/students/${id}/decks/${deckId}/words`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ downloadLocation: img.downloadLocation }),
-    }).catch(() => {});
+      body: JSON.stringify(changes),
+    });
+    const data = await readJson(res);
+    if (!res.ok) return data.error || 'Не удалось сохранить слово.';
+    await load();
+    return null;
   }
 
-  async function toggleRecording() {
-    if (!recording) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        chunksRef.current = [];
-        const mr = new MediaRecorder(stream);
-        mr.ondataavailable = (e) => chunksRef.current.push(e.data);
-        mr.onstop = async () => {
-          const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
-          const b64 = await blobToBase64(blob);
-          setAudioBase64(b64);
-          setAudioStatus('запись готова ✓');
-          stream.getTracks().forEach((t) => t.stop());
-        };
-        mr.start();
-        mediaRecorderRef.current = mr;
-        setRecording(true);
-        setAudioStatus('идёт запись…');
-      } catch (err) {
-        setAudioStatus('Микрофон недоступен в этом браузере/окне. Загрузите готовый аудиофайл кнопкой рядом.');
-      }
-    } else {
-      mediaRecorderRef.current.stop();
-      setRecording(false);
-    }
-  }
-
-  async function onFileChosen(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const b64 = await fileToBase64(file);
-    setAudioBase64(b64);
-    setAudioStatus('аудиофайл загружен ✓');
-  }
-
-  async function addWord() {
-    if (!en.trim() || !ru.trim()) return setFormError('Заполните слово и перевод.');
-    setFormError('');
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/students/${id}/decks/${deckId}/words`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ en: en.trim(), ru: ru.trim(), image: selectedImage, audio: audioBase64 }),
-      });
-      let data = {};
-      try {
-        data = await res.json();
-      } catch {
-        throw new Error(`Сервер ответил неожиданно (код ${res.status}). Проверьте подключение базы данных (Upstash Redis).`);
-      }
-      if (!res.ok) return setFormError(data.error || 'Не удалось сохранить слово.');
-      setEn('');
-      setRu('');
-      setSelectedImage(null);
-      setImageResults([]);
-      setImageStatus('');
-      setAudioBase64(null);
-      setAudioStatus('запись не сделана');
-      await load();
-    } catch (err) {
-      setFormError(err.message || 'Ошибка сети.');
-    } finally {
-      setSaving(false);
-    }
+  async function saveWord(wordId, changes) {
+    const res = await fetch(`/api/students/${id}/decks/${deckId}/words/${wordId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changes),
+    });
+    const data = await readJson(res);
+    if (!res.ok) return data.error || 'Не удалось сохранить изменения.';
+    setEditingId(null);
+    await load();
+    return null;
   }
 
   async function deleteWord(wordId) {
+    if (!confirm('Удалить это слово?')) return;
     await fetch(`/api/students/${id}/decks/${deckId}/words/${wordId}`, { method: 'DELETE' });
     load();
   }
@@ -220,119 +103,98 @@ export default function StudentDeckEditorPage() {
         ← Папки со словами
       </a>
       <header className="top">
-        <h1>{deckName || '…'}</h1>
+        {renaming ? (
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <div className="new-deck-form" style={{ marginTop: 0 }}>
+              <input
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && saveDeckName()}
+                autoFocus
+              />
+              <button className="btn small" onClick={saveDeckName}>
+                Сохранить
+              </button>
+              <button className="btn secondary small" onClick={() => setRenaming(false)}>
+                Отмена
+              </button>
+            </div>
+            {renameError && <div className="error-note">{renameError}</div>}
+          </div>
+        ) : (
+          <h1>
+            {deckName || '…'}{' '}
+            <button
+              className="icon-btn"
+              title="Переименовать папку"
+              onClick={() => {
+                setNameDraft(deckName);
+                setRenameError('');
+                setRenaming(true);
+              }}
+            >
+              ✎ Переименовать
+            </button>
+          </h1>
+        )}
         <TeacherToggle onStatus={setIsTeacher} />
       </header>
 
-      <div className="add-word-box">
-        <div className="row">
-          <div style={{ flex: 1, minWidth: 140 }}>
-            <span className="field-label">Английское слово</span>
-            <input placeholder="apple" value={en} onChange={(e) => setEn(e.target.value)} style={{ width: '100%' }} />
-          </div>
-          <div style={{ flex: 1, minWidth: 140 }}>
-            <span className="field-label">Перевод</span>
-            <input placeholder="яблоко" value={ru} onChange={(e) => setRu(e.target.value)} style={{ width: '100%' }} />
-          </div>
-        </div>
-        <div className="picker-row">
-          <button className="btn secondary small" onClick={translate} disabled={translating}>
-            {translating ? 'Перевожу…' : 'Перевести автоматически'}
-          </button>
-        </div>
-        <div className="picker-row">
-          <button className="btn secondary small" onClick={aiSearch} disabled={searching}>
-            {searching ? 'Ищу…' : 'Подобрать картинки (анализ слова ИИ)'}
-          </button>
-          <input
-            placeholder="или свой запрос по-английски…"
-            value={manualQuery}
-            onChange={(e) => setManualQuery(e.target.value)}
-            style={{ maxWidth: 200 }}
-          />
-          <button
-            className="btn secondary small"
-            onClick={() => manualQuery.trim() && runImageSearch(manualQuery.trim())}
-            disabled={searching}
-          >
-            Найти на Unsplash
-          </button>
-        </div>
-        {imageStatus && <div className="note" style={{ marginTop: 0 }}>{imageStatus}</div>}
-        <div className="image-grid">
-          {imageResults.map((r) => (
-            <button
-              key={r.id}
-              className={`thumb-wrap ${selectedImage && selectedImage.id === r.id ? 'selected' : ''}`}
-              onClick={() => pickImage(r)}
-              type="button"
-            >
-              <img src={r.thumb} alt="" />
-            </button>
-          ))}
-        </div>
-        {selectedImage && (
-          <div className="selected-preview">
-            <img src={selectedImage.thumb} alt="" />
-            <div className="credit">
-              Выбрано.
-              <br />
-              Фото:{' '}
-              <a href={selectedImage.creditLink} target="_blank" rel="noopener noreferrer">
-                {selectedImage.credit}
-              </a>{' '}
-              / Unsplash
-            </div>
-          </div>
-        )}
-        <div className="picker-row">
-          <button className="btn secondary small" onClick={toggleRecording}>
-            {recording ? '⏹ Остановить запись' : '🎙 Записать произношение'}
-          </button>
-          <button className="btn secondary small" onClick={() => fileInputRef.current.click()}>
-            Загрузить аудиофайл
-          </button>
-          <input ref={fileInputRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={onFileChosen} />
-          <span className="audio-status">
-            {recording && <span className="rec-dot"></span>}
-            {audioStatus}
-          </span>
-        </div>
-        <button className="btn" onClick={addWord} disabled={saving}>
-          {saving ? 'Добавляю…' : 'Добавить слово'}
-        </button>
-        {formError && <div className="error-note">{formError}</div>}
-      </div>
+      <h3 style={{ marginTop: 18 }}>Новое слово</h3>
+      <WordForm submitLabel="Добавить слово" resetOnSuccess onSubmit={addWord} />
 
+      <h3 style={{ marginTop: 28 }}>Слова в папке</h3>
       <div className="word-list">
         {words.length === 0 && <div className="empty">В этой папке пока нет слов.</div>}
-        {words.map((w) => (
-          <div className="word-row" key={w.id}>
-            {w.image ? (
-              <img className="thumb" src={w.image.thumb} alt="" />
-            ) : (
-              <div className="thumb" style={{ width: 64, height: 64, background: 'var(--line)', borderRadius: 10 }} />
-            )}
-            <div className="txt">
-              <div className="en">{w.en}</div>
-              <div className="ru">{w.ru}</div>
-            </div>
-            <div className="row-actions">
-              {w.audio ? (
-                <button className="icon-btn" onClick={() => new Audio(w.audio).play().catch(() => {})}>
-                  ▶ Слушать
-                </button>
+        {words.map((w) =>
+          editingId === w.id ? (
+            <WordForm
+              key={w.id}
+              initial={w}
+              submitLabel="Сохранить изменения"
+              onSubmit={(changes) => saveWord(w.id, changes)}
+              onCancel={() => setEditingId(null)}
+            />
+          ) : (
+            <div className="word-row" key={w.id}>
+              {w.image ? (
+                <img className="thumb" src={w.image.thumb} alt="" />
               ) : (
-                <span className="note" style={{ margin: 0 }}>
-                  нет записи
-                </span>
+                <div className="thumb" style={{ width: 64, height: 64, background: 'var(--line)', borderRadius: 10 }} />
               )}
-              <button className="icon-btn" onClick={() => deleteWord(w.id)}>
-                ✕
-              </button>
+              <div className="txt">
+                <div className="en">{w.en}</div>
+                <div className="ru">{w.ru}</div>
+                {w.image && w.image.credit && (
+                  <div className="credit">
+                    Фото:{' '}
+                    <a href={w.image.creditLink} target="_blank" rel="noopener noreferrer">
+                      {w.image.credit}
+                    </a>{' '}
+                    / Unsplash
+                  </div>
+                )}
+              </div>
+              <div className="row-actions">
+                {w.audio ? (
+                  <button className="icon-btn" onClick={() => new Audio(w.audio).play().catch(() => {})}>
+                    ▶ Слушать
+                  </button>
+                ) : (
+                  <span className="note" style={{ margin: 0 }}>
+                    нет записи
+                  </span>
+                )}
+                <button className="icon-btn" onClick={() => setEditingId(w.id)}>
+                  ✎ Изменить
+                </button>
+                <button className="icon-btn" onClick={() => deleteWord(w.id)}>
+                  ✕
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        )}
       </div>
     </div>
   );

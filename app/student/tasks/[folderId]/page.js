@@ -67,7 +67,7 @@ export default function TaskFolderPage() {
           onChange={onNameChange}
           style={{
             font: 'inherit',
-            fontFamily: "'Fraunces',serif",
+            fontFamily: "'Fraunces Variable',Georgia,serif",
             fontWeight: 600,
             fontSize: '2.1rem',
             border: 'none',
@@ -90,7 +90,7 @@ export default function TaskFolderPage() {
           padding: 16,
           borderRadius: 12,
           border: '1.5px solid var(--line)',
-          fontFamily: "'Inter',sans-serif",
+          fontFamily: "'Inter Variable',system-ui,sans-serif",
           fontSize: '1rem',
           lineHeight: 1.6,
           background: '#fff',

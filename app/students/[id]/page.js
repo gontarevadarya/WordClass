@@ -20,6 +20,9 @@ export default function StudentDecksPage() {
   const [name, setName] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameDraft, setRenameDraft] = useState('');
+  const [renameError, setRenameError] = useState('');
 
   const load = useCallback(async () => {
     const [sRes, dRes] = await Promise.all([fetch('/api/students'), fetch(`/api/students/${id}/decks`)]);
@@ -70,6 +73,30 @@ export default function StudentDecksPage() {
       setError(err.message || 'Ошибка сети.');
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function saveRename(deckId) {
+    const name = renameDraft.trim();
+    if (!name) return setRenameError('Название не может быть пустым.');
+    setRenameError('');
+    try {
+      const res = await fetch(`/api/students/${id}/decks/${deckId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(`Сервер ответил неожиданно (код ${res.status}).`);
+      }
+      if (!res.ok) return setRenameError(data.error || 'Не удалось переименовать.');
+      setRenamingId(null);
+      await load();
+    } catch (e) {
+      setRenameError(e.message);
     }
   }
 
@@ -125,18 +152,51 @@ export default function StudentDecksPage() {
                   <img key={w.id} src={w.image.thumb} alt="" />
                 ))}
               </div>
-              <h3>{d.name}</h3>
-              <div className="count">
-                {words.length} {wordNoun(words.length)}
-              </div>
-              <div className="actions">
-                <a className="btn small" href={`/students/${id}/decks/${d.id}`}>
-                  Открыть
-                </a>
-                <button className="btn small danger" onClick={() => deleteDeck(d.id)}>
-                  Удалить
-                </button>
-              </div>
+              {renamingId === d.id ? (
+                <div style={{ marginTop: 10 }}>
+                  <input
+                    value={renameDraft}
+                    onChange={(e) => setRenameDraft(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && saveRename(d.id)}
+                    autoFocus
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid var(--line)' }}
+                  />
+                  {renameError && <div className="error-note">{renameError}</div>}
+                  <div className="actions" style={{ marginTop: 8 }}>
+                    <button className="btn small" onClick={() => saveRename(d.id)}>
+                      Сохранить
+                    </button>
+                    <button className="btn small secondary" onClick={() => setRenamingId(null)}>
+                      Отмена
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h3>{d.name}</h3>
+                  <div className="count">
+                    {words.length} {wordNoun(words.length)}
+                  </div>
+                  <div className="actions">
+                    <a className="btn small" href={`/students/${id}/decks/${d.id}`}>
+                      Открыть
+                    </a>
+                    <button
+                      className="btn small secondary"
+                      onClick={() => {
+                        setRenamingId(d.id);
+                        setRenameDraft(d.name);
+                        setRenameError('');
+                      }}
+                    >
+                      ✎ Название
+                    </button>
+                    <button className="btn small danger" onClick={() => deleteDeck(d.id)}>
+                      Удалить
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           );
         })}

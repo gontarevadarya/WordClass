@@ -3,6 +3,7 @@ import { getJSON } from '@/lib/store';
 import { createStudentToken } from '@/lib/session';
 import { STUDENT_COOKIE } from '@/lib/auth';
 import { withErrorHandling } from '@/lib/api';
+import { cookieSecure } from '@/lib/cookies';
 
 export const POST = withErrorHandling(async (req) => {
   const body = await req.json().catch(() => ({}));
@@ -19,7 +20,7 @@ export const POST = withErrorHandling(async (req) => {
   const res = NextResponse.json({ student: { id: student.id, name: student.name } });
   res.cookies.set(STUDENT_COOKIE, token, {
     httpOnly: true,
-    secure: true,
+    secure: cookieSecure(),
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 30,

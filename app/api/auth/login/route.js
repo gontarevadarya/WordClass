@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createTeacherToken } from '@/lib/session';
 import { TEACHER_COOKIE } from '@/lib/auth';
+import { cookieSecure } from '@/lib/cookies';
 
 export async function POST(req) {
   const body = await req.json().catch(() => ({}));
@@ -21,7 +22,7 @@ export async function POST(req) {
   const res = NextResponse.json({ ok: true });
   res.cookies.set(TEACHER_COOKIE, token, {
     httpOnly: true,
-    secure: true,
+    secure: cookieSecure(),
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
